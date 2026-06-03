@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const category = searchParams.get("category");
   const chain = searchParams.get("chain");
 
-  let services = getServices().filter((s) => DISCOVERY_SOURCES.includes(s.source));
+  let services = (await getServices()).filter((s) => DISCOVERY_SOURCES.includes(s.source));
 
   if (source && source !== "all") services = services.filter((s) => s.source === source);
   if (status && status !== "all") services = services.filter((s) => s.verificationStatus === status);

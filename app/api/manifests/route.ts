@@ -54,11 +54,14 @@ export async function POST(req: Request) {
       };
     });
     const wallets = Array.from(new Set(previews.filter((p) => p.ok).map((p) => (p as { wallet: string }).wallet)));
+    const agentsExisting = await Promise.all(
+      wallets.map(async (w) => ({ wallet: w, existing: !!(await getAgentByWallet(w)) }))
+    );
     return NextResponse.json({
       validateOnly: true,
       valid: previews.every((p) => p.ok),
       services: previews,
-      agents: wallets.map((w) => ({ wallet: w, existing: !!getAgentByWallet(w) })),
+      agents: agentsExisting,
     });
   }
 
@@ -80,10 +83,10 @@ export async function POST(req: Request) {
     const manifest = v.manifest;
 
     // Upsert the owning agent, keyed by the payTo wallet.
-    const agent = upsertAgent(manifest.x402.payTo, agentMeta);
+    const agent = await upsertAgent(manifest.x402.payTo, agentMeta);
 
     // Update an existing service for this endpoint, or create a new one.
-    const existing = getServices().find((s) => s.endpoint === manifest.endpoint);
+    const existing = (await getServices()).find((s) => s.endpoint === manifest.endpoint);
     const service: Service = serviceFromManifest(manifest, {
       ownerAgentId: agent.id,
       source: existing?.source && existing.source !== "seed" ? existing.source : "manifest",
@@ -105,7 +108,7 @@ export async function POST(req: Request) {
     service.verificationHistory = [run, ...(existing?.verificationHistory ?? [])].slice(0, 20);
     service.verificationStatus = run.status;
     if (run.latencyMs) service.metrics.avgLatencyMs = service.metrics.avgLatencyMs || run.latencyMs;
-    saveService(service);
+    await saveService(service);
 
     // Link to the agent.
     if (!agent.serviceIds.includes(service.id)) {
@@ -117,7 +120,7 @@ export async function POST(req: Request) {
         timestamp: service.updatedAt,
         serviceId: service.id,
       });
-      saveAgent(agent);
+      await saveAgent(agent);
     }
 
     results.push({ ok: true, name: service.name, serviceId: service.id, slug: service.slug, status: run.status });
@@ -130,12 +133,12 @@ export async function POST(req: Request) {
   );
 }
 
-function upsertAgent(wallet: string, meta?: { handle?: string; displayName?: string; bio?: string }): Agent {
-  const existing = getAgentByWallet(wallet);
+async function upsertAgent(wallet: string, meta?: { handle?: string; displayName?: string; bio?: string }): Promise<Agent> {
+  const existing = await getAgentByWallet(wallet);
   if (existing) {
     // Optionally refresh provided profile fields.
     if (meta?.displayName || meta?.bio) {
-      return saveAgent({
+      return await saveAgent({
         ...existing,
         displayName: meta.displayName ?? existing.displayName,
         bio: meta.bio ?? existing.bio,
@@ -146,7 +149,7 @@ function upsertAgent(wallet: string, meta?: { handle?: string; displayName?: str
   const now = new Date().toISOString();
   const handle = (meta?.handle && slugify(meta.handle)) || `agent-${wallet.slice(2, 8).toLowerCase()}`;
   // Avoid handle collisions.
-  const uniqueHandle = getAgentById(handle) ? `${handle}-${Date.parse(now).toString(36).slice(-4)}` : handle;
+  const uniqueHandle = await getAgentById(handle) ? `${handle}-${Date.parse(now).toString(36).slice(-4)}` : handle;
   const agent: Agent = {
     id: `agent_${uniqueHandle}`,
     handle: uniqueHandle,
@@ -165,5 +168,5 @@ function upsertAgent(wallet: string, meta?: { handle?: string; displayName?: str
     demo: false,
     source: "manifest",
   };
-  return saveAgent(agent);
+  return await saveAgent(agent);
 }

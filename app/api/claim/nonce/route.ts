@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   }
   const serviceId = String(body.serviceId ?? "");
   const wallet = String(body.wallet ?? "");
-  const result = issueNonce(serviceId, wallet);
+  const result = await issueNonce(serviceId, wallet);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 422 });
   const { nonce, message, expiresAt } = result.challenge!;
   return NextResponse.json({ nonce, message, expiresAt });

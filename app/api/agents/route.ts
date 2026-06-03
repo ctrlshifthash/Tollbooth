@@ -10,12 +10,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const withServices = searchParams.get("withServices") === "true";
 
-  const agents = getAgents().sort((a, b) => b.trustScore - a.trustScore);
+  const agents = (await getAgents()).sort((a, b) => b.trustScore - a.trustScore);
   if (!withServices) {
     return NextResponse.json({ agents, count: agents.length });
   }
 
-  const services = getServices();
+  const services = await getServices();
   const enriched = agents.map((a) => ({
     ...a,
     services: services.filter((s) => a.serviceIds.includes(s.id)),
@@ -35,11 +35,11 @@ export async function POST(req: Request) {
   const wallet = String(body.wallet ?? "").trim();
   if (!isValidEthAddress(wallet)) return NextResponse.json({ error: "A valid wallet is required" }, { status: 422 });
 
-  const agent = createAgent({
+  const agent = await createAgent({
     wallet,
     handle: body.handle ? String(body.handle) : undefined,
     displayName: body.displayName ? String(body.displayName) : undefined,
     bio: body.bio ? String(body.bio) : undefined,
   });
-  return NextResponse.json({ agent, owned: getAgentsByWallet(wallet).length }, { status: 201 });
+  return NextResponse.json({ agent, owned: (await getAgentsByWallet(wallet)).length }, { status: 201 });
 }

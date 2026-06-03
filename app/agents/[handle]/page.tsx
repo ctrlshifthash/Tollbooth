@@ -27,8 +27,8 @@ import { formatCompact, formatUsdc, timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export function generateMetadata({ params }: { params: { handle: string } }): Metadata {
-  const agent = getAgentById(params.handle);
+export async function generateMetadata({ params }: { params: { handle: string } }): Promise<Metadata> {
+  const agent = await getAgentById(params.handle);
   if (!agent) return { title: "Agent not found" };
   return { title: `${agent.displayName} (@${agent.handle})`, description: agent.bio };
 }
@@ -41,11 +41,11 @@ const ACTIVITY_ICON: Record<ActivityEvent["type"], React.ReactNode> = {
   review: <MessageSquare className="size-3.5" />,
 };
 
-export default function AgentProfilePage({ params }: { params: { handle: string } }) {
-  const agent = getAgentById(params.handle);
+export default async function AgentProfilePage({ params }: { params: { handle: string } }) {
+  const agent = await getAgentById(params.handle);
   if (!agent) notFound();
 
-  const services = getServices().filter((s) => agent.serviceIds.includes(s.id));
+  const services = (await getServices()).filter((s) => agent.serviceIds.includes(s.id));
 
   return (
     <div className="container py-10">

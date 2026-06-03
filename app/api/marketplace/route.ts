@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // GET /api/marketplace?type=&category=&seller=
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const listings = getListings({
+  const listings = await getListings({
     type: searchParams.get("type") ?? undefined,
     category: searchParams.get("category") ?? undefined,
     seller: searchParams.get("seller") ?? undefined,
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   let serviceId: string | undefined;
 
   if (type === "service") {
-    const svc = getServiceById(String(body.serviceId ?? ""));
+    const svc = await getServiceById(String(body.serviceId ?? ""));
     if (!svc) return NextResponse.json({ error: "Service not found for this listing" }, { status: 422 });
     serviceId = svc.id;
     deliverable = {
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       note: "Deploy as your own autonomous agent from your dashboard.",
     };
   } else if (type === "agent") {
-    const ag = sellerAgentId ? getAgentById(sellerAgentId) : undefined;
+    const ag = sellerAgentId ? await getAgentById(sellerAgentId) : undefined;
     deliverable = {
       kind: "agent-template",
       data: { displayName: ag?.displayName ?? title, bio: ag?.bio ?? description, sourceAgentId: ag?.id ?? null },
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     deliverable = { kind: "content", data: { content: String(body.content ?? description) }, note: "Delivered on purchase." };
   }
 
-  const result = createListing({ type, title, description, category, priceUsdc, sellerWallet, sellerAgentId, serviceId, deliverable });
+  const result = await createListing({ type, title, description, category, priceUsdc, sellerWallet, sellerAgentId, serviceId, deliverable });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 422 });
   return NextResponse.json({ listing: result.listing }, { status: 201 });
 }

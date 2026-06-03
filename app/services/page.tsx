@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function ServicesPage() {
-  const services = getServices();
+export default async function ServicesPage() {
+  const services = await getServices();
 
   return (
     <div className="container py-12">

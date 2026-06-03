@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // GET /api/autonomous/:id  -> a single runner
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const agent = getAutonomousAgent(params.id);
+  const agent = await getAutonomousAgent(params.id);
   if (!agent) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ agent });
 }
@@ -34,6 +34,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
 // DELETE /api/autonomous/:id
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  deleteAutonomousAgent(params.id);
+  await deleteAutonomousAgent(params.id);
   return NextResponse.json({ ok: true });
 }

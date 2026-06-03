@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   let endpoint = body.endpoint ? String(body.endpoint) : "";
   let service: Service | undefined;
   if (body.serviceId) {
-    service = getServiceById(String(body.serviceId));
+    service = await getServiceById(String(body.serviceId));
     if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 });
     if (!endpoint) endpoint = service.endpoint;
   }
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         txHash: txHash ?? undefined,
         error: paymentError ?? undefined,
       };
-      appendCallRecord(service.id, record);
+      await appendCallRecord(service.id, record);
     }
 
     return NextResponse.json({
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   } catch (e) {
     // Record the failed attempt too, so reliability reflects reality.
     if (service) {
-      appendCallRecord(service.id, {
+      await appendCallRecord(service.id, {
         id: `call_${service.id}_${Date.now().toString(36)}_${randomBytes(3).toString("hex")}`,
         serviceId: service.id,
         type: body.pay === true ? "payment" : "test",

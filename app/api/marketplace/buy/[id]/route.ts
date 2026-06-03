@@ -13,7 +13,7 @@ export const maxDuration = 60;
 //   POST -> the buyer's signed payment settles USDC on Base to the seller, then
 //           the purchase is recorded and the deliverable is returned.
 async function handle(req: Request, id: string, body: Record<string, unknown>) {
-  const listing = getListing(id);
+  const listing = await getListing(id);
   if (!listing || !listing.active) return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   if (listing.demo) return NextResponse.json({ error: "This is a sample listing and can't be purchased." }, { status: 400 });
 
@@ -77,7 +77,7 @@ async function handle(req: Request, id: string, body: Record<string, unknown>) {
     }
 
     const buyerWallet = (typeof body.buyer === "string" && body.buyer) || payer || "unknown";
-    const purchase = recordPurchase({
+    const purchase = await recordPurchase({
       listingId: listing.id,
       title: listing.title,
       type: listing.type,

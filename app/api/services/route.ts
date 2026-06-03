@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // Optional query filters: ?category=&verified=true&chain=&q=&minUptime=&maxPrice=
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  let services = getServices();
+  let services = await getServices();
 
   const category = searchParams.get("category");
   const status = searchParams.get("status");
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     body.agent && typeof body.agent === "object"
       ? (body.agent as { handle?: string; displayName?: string; bio?: string })
       : undefined;
-  const ownerAgent = upsertAgentByWallet(wallet, agentMeta);
+  const ownerAgent = await upsertAgentByWallet(wallet, agentMeta);
 
   const now = new Date().toISOString();
   const id = `svc_${slugify(name)}_${Date.parse(now).toString(36)}`;
@@ -142,10 +142,10 @@ export async function POST(req: Request) {
     verified: run.status === "verified",
   });
 
-  saveService(service);
+  await saveService(service);
 
   // Link the service to its owner agent (default agent for browser submissions).
-  const owner = getAgentById(service.ownerAgentId);
+  const owner = await getAgentById(service.ownerAgentId);
   if (owner && !owner.serviceIds.includes(service.id)) {
     owner.serviceIds.unshift(service.id);
     owner.activity.unshift({
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
       timestamp: now,
       serviceId: service.id,
     });
-    saveAgent(owner);
+    await saveAgent(owner);
   }
 
   return NextResponse.json({ service, verification: run }, { status: 201 });

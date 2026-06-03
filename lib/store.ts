@@ -1,43 +1,18 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
 import type { Agent, CallRecord, HealthCheck, NonceChallenge, Service, WalletOwnership } from "./types";
 import { seedAgents, seedServices } from "./seed";
 import { recomputeServiceMetrics, recomputeAgentAggregates, HISTORY_CAP } from "./metrics";
 import { slugify, truncateAddress } from "./utils";
+import { kvGet, kvSet } from "./db";
 
 // ---------------------------------------------------------------------------
-// Local JSON data store.
+// Data store (Postgres KV via lib/db).
 //
-// Seeds from lib/seed.ts on first run and writes mutations to /data/*.json.
-// Every read/write goes through here, so swapping in Postgres/Prisma/SQLite
-// later means re-implementing these functions only.
+// Each collection is one JSONB row: "services", "agents", "nonces". Seeds from
+// lib/seed.ts the first time a collection is read. Async throughout — callers
+// await. Swapping the backend means re-implementing lib/db only.
 // ---------------------------------------------------------------------------
 
-// Vercel's project filesystem is read-only; only /tmp is writable. Use it on
-// Vercel (ephemeral, re-seeds on cold start) and the repo's /data locally.
-const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
-const SERVICES_FILE = path.join(DATA_DIR, "services.json");
-const AGENTS_FILE = path.join(DATA_DIR, "agents.json");
-const NONCES_FILE = path.join(DATA_DIR, "nonces.json");
-
-function ensureSeeded() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(SERVICES_FILE)) fs.writeFileSync(SERVICES_FILE, JSON.stringify(seedServices, null, 2));
-  if (!fs.existsSync(AGENTS_FILE)) fs.writeFileSync(AGENTS_FILE, JSON.stringify(seedAgents, null, 2));
-  if (!fs.existsSync(NONCES_FILE)) fs.writeFileSync(NONCES_FILE, JSON.stringify([], null, 2));
-}
-
-function readJson<T>(file: string): T {
-  ensureSeeded();
-  return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-}
-
-function writeJson(file: string, data: unknown) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// Backfill defaults so older/partial records always satisfy the current shape.
 function normalizeService(s: Service): Service {
   return {
     ...s,
@@ -48,53 +23,68 @@ function normalizeService(s: Service): Service {
   };
 }
 
+// Read a collection, seeding it on first access.
+async function readServices(): Promise<Service[]> {
+  const v = await kvGet<Service[] | null>("services", null);
+  if (v === null) {
+    await kvSet("services", seedServices);
+    return seedServices.map(normalizeService);
+  }
+  return v.map(normalizeService);
+}
+async function readAgents(): Promise<Agent[]> {
+  const v = await kvGet<Agent[] | null>("agents", null);
+  if (v === null) {
+    await kvSet("agents", seedAgents);
+    return seedAgents;
+  }
+  return v;
+}
+
 // ---- Services -------------------------------------------------------------
 
-export function getServices(): Service[] {
-  return readJson<Service[]>(SERVICES_FILE).map(normalizeService);
+export async function getServices(): Promise<Service[]> {
+  return readServices();
 }
 
-export function getServiceById(id: string): Service | undefined {
-  return getServices().find((s) => s.id === id || s.slug === id);
+export async function getServiceById(id: string): Promise<Service | undefined> {
+  return (await readServices()).find((s) => s.id === id || s.slug === id);
 }
 
-export function saveService(service: Service): Service {
-  const services = getServices();
+export async function saveService(service: Service): Promise<Service> {
+  const services = await readServices();
   const idx = services.findIndex((s) => s.id === service.id);
   if (idx >= 0) services[idx] = service;
   else services.unshift(service);
-  writeJson(SERVICES_FILE, services);
+  await kvSet("services", services);
   return service;
 }
 
-export function replaceServices(services: Service[]) {
-  writeJson(SERVICES_FILE, services);
+export async function replaceServices(services: Service[]): Promise<void> {
+  await kvSet("services", services);
 }
 
 // ---- Health checks --------------------------------------------------------
 
-// Append a real probe result and recompute live metrics + lastCheckedAt.
-export function appendHealthCheck(serviceId: string, check: HealthCheck): Service | undefined {
-  const svc = getServiceById(serviceId);
+export async function appendHealthCheck(serviceId: string, check: HealthCheck): Promise<Service | undefined> {
+  const svc = await getServiceById(serviceId);
   if (!svc) return undefined;
   svc.healthChecks = [check, ...(svc.healthChecks ?? [])].slice(0, HISTORY_CAP);
   svc.lastCheckedAt = check.timestamp;
   svc.metrics = recomputeServiceMetrics(svc);
   svc.updatedAt = check.timestamp;
-  // Real data has arrived — it's no longer just demo.
   if (svc.demo) svc.demo = false;
-  saveService(svc);
-  refreshAgentForService(svc);
+  await saveService(svc);
+  await refreshAgentForService(svc);
   return svc;
 }
 
 // ---- Call / payment records ----------------------------------------------
 
-export function appendCallRecord(serviceId: string, rec: CallRecord): Service | undefined {
-  const svc = getServiceById(serviceId);
+export async function appendCallRecord(serviceId: string, rec: CallRecord): Promise<Service | undefined> {
+  const svc = await getServiceById(serviceId);
   if (!svc) return undefined;
   svc.callLog = [rec, ...(svc.callLog ?? [])].slice(0, HISTORY_CAP);
-  // Real, settled payment → record a real settlement with its tx hash.
   if (rec.paid && rec.ok && rec.txHash) {
     svc.settlements = [
       { hash: rec.txHash, amountUsdc: rec.amountUsdc ?? svc.priceUsdc, timestamp: rec.timestamp, status: "success" as const },
@@ -104,55 +94,59 @@ export function appendCallRecord(serviceId: string, rec: CallRecord): Service | 
   svc.metrics = recomputeServiceMetrics(svc);
   svc.updatedAt = rec.timestamp;
   if (svc.demo) svc.demo = false;
-  saveService(svc);
-  refreshAgentForService(svc);
+  await saveService(svc);
+  await refreshAgentForService(svc);
   return svc;
 }
 
 // ---- Ownership ------------------------------------------------------------
 
-export function setServiceOwnership(serviceId: string, ownership: WalletOwnership): Service | undefined {
-  const svc = getServiceById(serviceId);
+export async function setServiceOwnership(serviceId: string, ownership: WalletOwnership): Promise<Service | undefined> {
+  const svc = await getServiceById(serviceId);
   if (!svc) return undefined;
   svc.ownership = ownership;
   svc.updatedAt = new Date().toISOString();
-  saveService(svc);
+  await saveService(svc);
   return svc;
 }
 
 // ---- Agents ---------------------------------------------------------------
 
-export function getAgents(): Agent[] {
-  return readJson<Agent[]>(AGENTS_FILE);
+export async function getAgents(): Promise<Agent[]> {
+  return readAgents();
 }
 
-export function getAgentById(id: string): Agent | undefined {
-  return getAgents().find((a) => a.id === id || a.handle === id);
+export async function getAgentById(id: string): Promise<Agent | undefined> {
+  return (await readAgents()).find((a) => a.id === id || a.handle === id);
 }
 
-export function getAgentByWallet(wallet: string): Agent | undefined {
+export async function getAgentByWallet(wallet: string): Promise<Agent | undefined> {
   const w = wallet.toLowerCase();
-  return getAgents().find((a) => a.wallet.toLowerCase() === w);
+  return (await readAgents()).find((a) => a.wallet.toLowerCase() === w);
 }
 
-export function saveAgent(agent: Agent): Agent {
-  const agents = getAgents();
+export async function saveAgent(agent: Agent): Promise<Agent> {
+  const agents = await readAgents();
   const idx = agents.findIndex((a) => a.id === agent.id);
   if (idx >= 0) agents[idx] = agent;
   else agents.unshift(agent);
-  writeJson(AGENTS_FILE, agents);
+  await kvSet("agents", agents);
   return agent;
 }
 
-// Find or create an agent (operator profile) keyed by its wallet. This is how a
-// connected wallet becomes a first-class agent: listing a service or importing a
-// manifest from a new wallet creates that wallet's agent automatically. Optional
-// meta lets the owner brand the profile (handle / display name / bio).
-export function upsertAgentByWallet(
+export async function getAgentsByWallet(wallet: string): Promise<Agent[]> {
+  const w = wallet.toLowerCase();
+  return (await readAgents()).filter((a) => a.wallet.toLowerCase() === w);
+}
+
+// Find or create an agent keyed by wallet (used by List a Service / manifests).
+export async function upsertAgentByWallet(
   wallet: string,
   meta?: { handle?: string; displayName?: string; bio?: string }
-): Agent {
-  const existing = getAgentByWallet(wallet);
+): Promise<Agent> {
+  const agents = await readAgents();
+  const w = wallet.toLowerCase();
+  const existing = agents.find((a) => a.wallet.toLowerCase() === w);
   if (existing) {
     if (meta?.displayName || meta?.bio || meta?.handle) {
       return saveAgent({
@@ -165,12 +159,28 @@ export function upsertAgentByWallet(
   }
   const nowIso = new Date().toISOString();
   const baseHandle = (meta?.handle && slugify(meta.handle)) || `agent-${wallet.slice(2, 8).toLowerCase()}`;
-  const uniqueHandle = getAgentById(baseHandle) ? `${baseHandle}-${Date.parse(nowIso).toString(36).slice(-4)}` : baseHandle;
-  const agent: Agent = {
-    id: `agent_${uniqueHandle}`,
-    handle: uniqueHandle,
-    displayName: meta?.displayName?.trim() || `Agent ${truncateAddress(wallet)}`,
-    bio: meta?.bio?.trim() || "x402 service operator on Base.",
+  const taken = (h: string) => agents.some((a) => a.id === h || a.handle === h);
+  const uniqueHandle = taken(baseHandle) ? `${baseHandle}-${Date.parse(nowIso).toString(36).slice(-4)}` : baseHandle;
+  return saveAgent(newAgent(wallet, uniqueHandle, meta?.displayName, meta?.bio));
+}
+
+// Always create a NEW agent owned by `wallet` (no upsert) — unlimited per wallet.
+export async function createAgent(input: { wallet: string; handle?: string; displayName?: string; bio?: string }): Promise<Agent> {
+  const agents = await readAgents();
+  const base = (input.handle && slugify(input.handle)) || `agent-${input.wallet.slice(2, 8).toLowerCase()}`;
+  let handle = base;
+  let n = 2;
+  const taken = (h: string) => agents.some((a) => a.id === `agent_${h}` || a.handle === h);
+  while (taken(handle)) handle = `${base}-${n++}`;
+  return saveAgent(newAgent(input.wallet, handle, input.displayName, input.bio));
+}
+
+function newAgent(wallet: string, handle: string, displayName?: string, bio?: string): Agent {
+  return {
+    id: `agent_${handle}`,
+    handle,
+    displayName: displayName?.trim() || `Agent ${truncateAddress(wallet)}`,
+    bio: bio?.trim() || "x402 agent on Base.",
     wallet,
     avatarColor: "from-indigo-500 to-blue-400",
     trustScore: 0,
@@ -178,76 +188,43 @@ export function upsertAgentByWallet(
     callsServed: 0,
     avgRating: 0,
     serviceIds: [],
-    joinedAt: nowIso,
+    joinedAt: new Date().toISOString(),
     activity: [],
     walletVerified: false,
     demo: false,
     source: "submission",
   };
-  return saveAgent(agent);
-}
-
-// All agents owned by a wallet (a wallet can own unlimited agents).
-export function getAgentsByWallet(wallet: string): Agent[] {
-  const w = wallet.toLowerCase();
-  return getAgents().filter((a) => a.wallet.toLowerCase() === w);
-}
-
-// Always create a NEW agent owned by `wallet` (no upsert) — wallets can have
-// any number of agents. Handle is made unique.
-export function createAgent(input: { wallet: string; handle?: string; displayName?: string; bio?: string }): Agent {
-  const nowIso = new Date().toISOString();
-  const base = (input.handle && slugify(input.handle)) || `agent-${input.wallet.slice(2, 8).toLowerCase()}`;
-  let handle = base;
-  let n = 2;
-  while (getAgentById(handle)) handle = `${base}-${n++}`; // ensure uniqueness
-  const agent: Agent = {
-    id: `agent_${handle}`,
-    handle,
-    displayName: input.displayName?.trim() || `Agent ${truncateAddress(input.wallet)}`,
-    bio: input.bio?.trim() || "x402 agent on Base.",
-    wallet: input.wallet,
-    avatarColor: "from-indigo-500 to-blue-400",
-    trustScore: 0,
-    totalRevenueUsdc: 0,
-    callsServed: 0,
-    avgRating: 0,
-    serviceIds: [],
-    joinedAt: nowIso,
-    activity: [],
-    walletVerified: false,
-    demo: false,
-    source: "submission",
-  };
-  return saveAgent(agent);
 }
 
 // Recompute an owner agent's real aggregates after its service data changes.
-function refreshAgentForService(service: Service) {
-  const agent = getAgentById(service.ownerAgentId);
-  if (!agent || agent.demo) return; // never overwrite demo agent showcase numbers
-  const updated = recomputeAgentAggregates(agent, getServices());
-  saveAgent({ ...agent, ...updated });
+async function refreshAgentForService(service: Service): Promise<void> {
+  const agent = await getAgentById(service.ownerAgentId);
+  if (!agent || agent.demo) return;
+  const updated = recomputeAgentAggregates(agent, await getServices());
+  await saveAgent({ ...agent, ...updated });
 }
 
 // ---- Nonce challenges (wallet ownership proof) ----------------------------
 
-export function getNonces(): NonceChallenge[] {
-  return readJson<NonceChallenge[]>(NONCES_FILE);
+export async function getNonces(): Promise<NonceChallenge[]> {
+  return kvGet<NonceChallenge[]>("nonces", []);
 }
 
-export function saveNonce(challenge: NonceChallenge) {
-  const nonces = getNonces().filter((n) => n.id !== challenge.id);
+export async function saveNonce(challenge: NonceChallenge): Promise<void> {
+  const nonces = (await getNonces()).filter((n) => n.id !== challenge.id);
   nonces.unshift(challenge);
-  writeJson(NONCES_FILE, nonces.slice(0, 200));
+  await kvSet("nonces", nonces.slice(0, 200));
 }
 
-export function getNonce(serviceId: string, wallet: string): NonceChallenge | undefined {
+export async function getNonce(serviceId: string, wallet: string): Promise<NonceChallenge | undefined> {
   const id = `${serviceId}:${wallet.toLowerCase()}`;
-  return getNonces().find((n) => n.id === id);
+  return (await getNonces()).find((n) => n.id === id);
 }
 
-export function deleteNonce(serviceId: string, wallet: string) {
+export async function deleteNonce(serviceId: string, wallet: string): Promise<void> {
   const id = `${serviceId}:${wallet.toLowerCase()}`;
-  writeJson(NONCES_FILE, getNonces().filter((n) => n.id !== id));
+  await kvSet(
+    "nonces",
+    (await getNonces()).filter((n) => n.id !== id)
+  );
 }

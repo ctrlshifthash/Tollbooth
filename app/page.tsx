@@ -113,9 +113,9 @@ const ABOUT_ITEMS = [
   },
 ];
 
-export default function HomePage() {
-  const services = getServices();
-  const agents = getAgents();
+export default async function HomePage() {
+  const services = await getServices();
+  const agents = await getAgents();
 
   const verified = services.filter((s) => s.verificationStatus === "verified");
   const totalCalls = services.reduce((a, s) => a + s.metrics.totalCalls, 0);

@@ -1,37 +1,18 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { Deliverable, ListingType, MarketplaceListing, Purchase, ServiceCategory } from "./types";
 import { isValidEthAddress } from "./utils";
+import { kvGet, kvSet } from "./db";
 
 // ---------------------------------------------------------------------------
-// Marketplace storage.
+// Marketplace storage (Postgres KV).
 //
-// Listings + purchases persisted to data/*.json. Buys settle in USDC on Base
-// via x402 directly to the seller's wallet (see /api/marketplace/buy/[id]).
+// Listings + purchases persisted via lib/db. Buys settle in USDC on Base via
+// x402 directly to the seller's wallet (see /api/marketplace/buy/[id]).
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
-const LISTINGS_FILE = path.join(DATA_DIR, "marketplace.json");
-const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
-
-function ensure(file: string) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(file)) fs.writeFileSync(file, "[]");
-}
-function readJson<T>(file: string): T {
-  ensure(file);
-  return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-}
-function writeJson(file: string, data: unknown) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// ---- Listings -------------------------------------------------------------
-
-// Seeded SAMPLE listings — shown for social proof so the marketplace isn't
-// empty. Marked demo + not purchasable. Never written to disk.
+// Seeded SAMPLE listings — social proof so the marketplace isn't empty. Marked
+// demo + not purchasable. Never written to the DB.
 const DEMO_LISTINGS: MarketplaceListing[] = [
   {
     id: "mkt_sample_ocr",
@@ -110,6 +91,9 @@ const DEMO_LISTINGS: MarketplaceListing[] = [
   },
 ];
 
+const readListings = () => kvGet<MarketplaceListing[]>("marketplace", []);
+const readPurchases = () => kvGet<Purchase[]>("purchases", []);
+
 function applyFilters(list: MarketplaceListing[], filters?: { type?: string; category?: string; seller?: string }): MarketplaceListing[] {
   let out = list;
   if (filters?.type && filters.type !== "all") out = out.filter((l) => l.type === filters.type);
@@ -118,24 +102,23 @@ function applyFilters(list: MarketplaceListing[], filters?: { type?: string; cat
   return out;
 }
 
-export function getListings(filters?: { type?: string; category?: string; seller?: string }): MarketplaceListing[] {
-  const real = readJson<MarketplaceListing[]>(LISTINGS_FILE).filter((l) => l.active);
-  // Don't show samples when filtering by a specific seller wallet.
+export async function getListings(filters?: { type?: string; category?: string; seller?: string }): Promise<MarketplaceListing[]> {
+  const real = (await readListings()).filter((l) => l.active);
   const samples = filters?.seller ? [] : DEMO_LISTINGS;
   const list = applyFilters([...real, ...samples], filters);
   return list.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
-export function getListing(id: string): MarketplaceListing | undefined {
-  return readJson<MarketplaceListing[]>(LISTINGS_FILE).find((l) => l.id === id) ?? DEMO_LISTINGS.find((l) => l.id === id);
+export async function getListing(id: string): Promise<MarketplaceListing | undefined> {
+  return (await readListings()).find((l) => l.id === id) ?? DEMO_LISTINGS.find((l) => l.id === id);
 }
 
-export function saveListing(listing: MarketplaceListing): MarketplaceListing {
-  const all = readJson<MarketplaceListing[]>(LISTINGS_FILE);
+export async function saveListing(listing: MarketplaceListing): Promise<MarketplaceListing> {
+  const all = await readListings();
   const i = all.findIndex((l) => l.id === listing.id);
   if (i >= 0) all[i] = listing;
   else all.unshift(listing);
-  writeJson(LISTINGS_FILE, all);
+  await kvSet("marketplace", all);
   return listing;
 }
 
@@ -151,7 +134,7 @@ export interface CreateListingInput {
   deliverable: Deliverable;
 }
 
-export function createListing(input: CreateListingInput): { ok: boolean; error?: string; listing?: MarketplaceListing } {
+export async function createListing(input: CreateListingInput): Promise<{ ok: boolean; error?: string; listing?: MarketplaceListing }> {
   if (!input.title.trim()) return { ok: false, error: "Title is required" };
   if (!isValidEthAddress(input.sellerWallet)) return { ok: false, error: "A valid seller wallet is required" };
   if (!(input.priceUsdc > 0)) return { ok: false, error: "Price must be greater than 0" };
@@ -172,29 +155,28 @@ export function createListing(input: CreateListingInput): { ok: boolean; error?:
     createdAt: new Date().toISOString(),
     active: true,
   };
-  return { ok: true, listing: saveListing(listing) };
+  return { ok: true, listing: await saveListing(listing) };
 }
 
 // ---- Purchases ------------------------------------------------------------
 
-export function getPurchases(buyerWallet?: string): Purchase[] {
-  let all = readJson<Purchase[]>(PURCHASES_FILE);
+export async function getPurchases(buyerWallet?: string): Promise<Purchase[]> {
+  let all = await readPurchases();
   if (buyerWallet) all = all.filter((p) => p.buyerWallet.toLowerCase() === buyerWallet.toLowerCase());
   return all.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 }
 
-export function recordPurchase(p: Omit<Purchase, "id" | "timestamp">): Purchase {
+export async function recordPurchase(p: Omit<Purchase, "id" | "timestamp">): Promise<Purchase> {
   const purchase: Purchase = { ...p, id: `buy_${randomBytes(5).toString("hex")}`, timestamp: new Date().toISOString() };
-  const all = readJson<Purchase[]>(PURCHASES_FILE);
+  const all = await readPurchases();
   all.unshift(purchase);
-  writeJson(PURCHASES_FILE, all);
+  await kvSet("purchases", all);
 
-  // Roll the sale up onto the listing.
-  const listing = getListing(p.listingId);
-  if (listing) {
+  const listing = await getListing(p.listingId);
+  if (listing && !listing.demo) {
     listing.sales += 1;
     listing.revenueUsdc = Math.round((listing.revenueUsdc + p.amountUsdc) * 1e6) / 1e6;
-    saveListing(listing);
+    await saveListing(listing);
   }
   return purchase;
 }

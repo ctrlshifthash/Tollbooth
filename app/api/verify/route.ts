@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   // Persist against an existing service if one was named.
   if (serviceId) {
-    const service = getServiceById(serviceId);
+    const service = await getServiceById(serviceId);
     if (service) {
       service.verificationHistory = [run, ...service.verificationHistory].slice(0, 20);
       service.verificationStatus = run.status;
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         totalCalls: service.metrics.totalCalls,
         verified: run.status === "verified",
       });
-      saveService(service);
+      await saveService(service);
     }
   }
 

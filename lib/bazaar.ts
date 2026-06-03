@@ -125,12 +125,12 @@ function serviceFromBazaar(item: BazaarItem, existingId?: string): Service | nul
   };
 }
 
-function upsertAgent(wallet: string): Agent {
-  const existing = getAgentByWallet(wallet);
+async function upsertAgent(wallet: string): Promise<Agent> {
+  const existing = await getAgentByWallet(wallet);
   if (existing) return existing;
   const now = new Date().toISOString();
   const handle = `agent-${wallet.slice(2, 8).toLowerCase()}`;
-  const uniqueHandle = getAgentById(handle) ? `${handle}-${Date.parse(now).toString(36).slice(-4)}` : handle;
+  const uniqueHandle = (await getAgentById(handle)) ? `${handle}-${Date.parse(now).toString(36).slice(-4)}` : handle;
   return saveAgent({
     id: `agent_${uniqueHandle}`,
     handle: uniqueHandle,
@@ -165,7 +165,7 @@ export async function syncBazaar(limit = 100): Promise<BazaarSyncResult> {
   if (err) throw new Error(err);
 
   const items = await fetchBazaar();
-  const existingByEndpoint = new Map(getServices().map((s) => [s.endpoint, s.id]));
+  const existingByEndpoint = new Map((await getServices()).map((s) => [s.endpoint, s.id]));
   const baseItems = items.filter((it) => (it.accepts ?? []).some((a) => a.network === "eip155:8453"));
 
   let imported = 0;
@@ -187,13 +187,13 @@ export async function syncBazaar(limit = 100): Promise<BazaarSyncResult> {
     const svc = serviceFromBazaar(item);
     if (!svc) continue;
 
-    const agent = upsertAgent(svc.wallet);
+    const agent = await upsertAgent(svc.wallet);
     svc.ownerAgentId = agent.id;
-    saveService(svc);
+    await saveService(svc);
 
     if (!agent.serviceIds.includes(svc.id)) {
       agent.serviceIds.unshift(svc.id);
-      saveAgent(agent);
+      await saveAgent(agent);
     }
     touchedAgents.add(agent.id);
     imported++;

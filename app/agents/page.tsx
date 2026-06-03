@@ -16,11 +16,11 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function AgentsPage() {
-  const agents = getAgents()
+export default async function AgentsPage() {
+  const agents = (await getAgents())
     .filter((a) => a.serviceIds.length > 0 || a.callsServed > 0)
     .sort((a, b) => b.trustScore - a.trustScore);
-  const services = getServices();
+  const services = await getServices();
 
   return (
     <div className="container py-12">

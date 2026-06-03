@@ -43,9 +43,9 @@ export interface IssueResult {
   challenge?: NonceChallenge;
 }
 
-export function issueNonce(serviceId: string, wallet: string): IssueResult {
+export async function issueNonce(serviceId: string, wallet: string): Promise<IssueResult> {
   if (!isValidEthAddress(wallet)) return { ok: false, error: "Invalid wallet address" };
-  const service = getServiceById(serviceId);
+  const service = await getServiceById(serviceId);
   if (!service) return { ok: false, error: "Service not found" };
 
   const now = new Date();
@@ -61,7 +61,7 @@ export function issueNonce(serviceId: string, wallet: string): IssueResult {
     issuedAt,
     expiresAt: new Date(now.getTime() + NONCE_TTL_MS).toISOString(),
   };
-  saveNonce(challenge);
+  await saveNonce(challenge);
   return { ok: true, challenge };
 }
 
@@ -75,13 +75,13 @@ export async function verifyClaim(serviceId: string, wallet: string, signature: 
   if (!isValidEthAddress(wallet)) return { ok: false, error: "Invalid wallet address" };
   if (!/^0x[0-9a-fA-F]+$/.test(signature)) return { ok: false, error: "Invalid signature format" };
 
-  const service = getServiceById(serviceId);
+  const service = await getServiceById(serviceId);
   if (!service) return { ok: false, error: "Service not found" };
 
-  const challenge = getNonce(service.id, wallet);
+  const challenge = await getNonce(service.id, wallet);
   if (!challenge) return { ok: false, error: "No active nonce — request a new challenge first" };
   if (Date.parse(challenge.expiresAt) < Date.now()) {
-    deleteNonce(service.id, wallet);
+    await deleteNonce(service.id, wallet);
     return { ok: false, error: "Nonce expired — request a new challenge" };
   }
 
@@ -111,13 +111,13 @@ export async function verifyClaim(serviceId: string, wallet: string, signature: 
     verifiedAt: new Date().toISOString(),
     method: "eip191-signature",
   };
-  setServiceOwnership(service.id, ownership);
-  deleteNonce(service.id, wallet);
+  await setServiceOwnership(service.id, ownership);
+  await deleteNonce(service.id, wallet);
 
   // Promote the owning agent's wallet-verified flag when the wallets line up.
-  const agent = getAgentById(service.ownerAgentId);
+  const agent = await getAgentById(service.ownerAgentId);
   if (agent && agent.wallet.toLowerCase() === wallet.toLowerCase()) {
-    saveAgent({ ...agent, walletVerified: true });
+    await saveAgent({ ...agent, walletVerified: true });
   }
 
   return { ok: true, ownership: { ...ownership, ...(matchesPayTo ? {} : {}) } };

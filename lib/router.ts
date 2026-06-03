@@ -65,11 +65,11 @@ function toCandidate(s: Service): Candidate {
 }
 
 // Rank live, affordable, matching services by reputation then price.
-export function selectCandidates(req: RouteRequest): Service[] {
-  let services = getServices();
+export async function selectCandidates(req: RouteRequest): Promise<Service[]> {
+  let services = await getServices();
 
   if (req.serviceId) {
-    const direct = getServiceById(req.serviceId);
+    const direct = await getServiceById(req.serviceId);
     return direct ? [direct] : [];
   }
 
@@ -110,7 +110,7 @@ export function selectCandidates(req: RouteRequest): Service[] {
 }
 
 export async function routeAndRun(req: RouteRequest): Promise<RouteResult> {
-  const ranked = selectCandidates(req);
+  const ranked = await selectCandidates(req);
   const candidates = ranked.slice(0, 6).map(toCandidate);
   const pick = ranked[0];
   const reason = pick
@@ -159,12 +159,12 @@ export async function routeAndRun(req: RouteRequest): Promise<RouteResult> {
     paid = await paidX402Fetch(pick.endpoint);
   } catch (e) {
     // record the failed paid attempt
-    recordCall(pick, false, 0, 0, undefined, e instanceof Error ? e.message : "payment failed");
+    await recordCall(pick, false, 0, 0, undefined, e instanceof Error ? e.message : "payment failed");
     return { ok: false, error: e instanceof Error ? e.message : "Paid call failed", selected: toCandidate(pick), reason, candidates };
   }
 
   const txHash = extractSettlementTxHash(paid.paymentResponse);
-  recordCall(pick, paid.ok, paid.status, paid.latencyMs, txHash ?? undefined);
+  await recordCall(pick, paid.ok, paid.status, paid.latencyMs, txHash ?? undefined);
 
   // Parse JSON result if possible.
   let result: unknown = paid.bodyPreview;
@@ -187,7 +187,7 @@ export async function routeAndRun(req: RouteRequest): Promise<RouteResult> {
   };
 }
 
-function recordCall(svc: Service, ok: boolean, status: number, latencyMs: number, txHash?: string, error?: string) {
+async function recordCall(svc: Service, ok: boolean, status: number, latencyMs: number, txHash?: string, error?: string) {
   const rec: CallRecord = {
     id: `call_${svc.id}_${Date.now().toString(36)}_${randomBytes(3).toString("hex")}`,
     serviceId: svc.id,
@@ -201,5 +201,5 @@ function recordCall(svc: Service, ok: boolean, status: number, latencyMs: number
     txHash,
     error,
   };
-  appendCallRecord(svc.id, rec);
+  await appendCallRecord(svc.id, rec);
 }

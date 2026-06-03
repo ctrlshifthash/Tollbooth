@@ -1,11 +1,10 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { AgentRun, AutonomousAgent, AutonomousStatus } from "./types";
 import { getServiceById, appendCallRecord } from "./store";
 import { paidX402Fetch, getPaymentKeyError } from "./x402-payment";
 import { extractSettlementTxHash } from "./utils";
+import { kvGet, kvSet } from "./db";
 
 // ---------------------------------------------------------------------------
 // Autonomous agent engine.
@@ -18,44 +17,33 @@ import { extractSettlementTxHash } from "./utils";
 // uptime / calls / revenue reflect autonomous traffic too.
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
-const FILE = path.join(DATA_DIR, "autonomous.json");
 const MIN_INTERVAL_SEC = 15;
 
-function ensure() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "[]");
-}
-function readAll(): AutonomousAgent[] {
-  ensure();
-  return JSON.parse(fs.readFileSync(FILE, "utf8")) as AutonomousAgent[];
-}
-function writeAll(agents: AutonomousAgent[]) {
-  fs.writeFileSync(FILE, JSON.stringify(agents, null, 2));
-}
+const readAll = () => kvGet<AutonomousAgent[]>("autonomous", []);
+const writeAll = (agents: AutonomousAgent[]) => kvSet("autonomous", agents);
 
-export function getAutonomousAgents(owner?: string): AutonomousAgent[] {
-  const all = readAll();
+export async function getAutonomousAgents(owner?: string): Promise<AutonomousAgent[]> {
+  const all = await readAll();
   if (!owner) return all;
   const o = owner.toLowerCase();
   return all.filter((a) => a.ownerWallet.toLowerCase() === o);
 }
 
-export function getAutonomousAgent(id: string): AutonomousAgent | undefined {
-  return readAll().find((a) => a.id === id);
+export async function getAutonomousAgent(id: string): Promise<AutonomousAgent | undefined> {
+  return (await readAll()).find((a) => a.id === id);
 }
 
-export function saveAutonomousAgent(agent: AutonomousAgent): AutonomousAgent {
-  const all = readAll();
+export async function saveAutonomousAgent(agent: AutonomousAgent): Promise<AutonomousAgent> {
+  const all = await readAll();
   const i = all.findIndex((a) => a.id === agent.id);
   if (i >= 0) all[i] = agent;
   else all.unshift(agent);
-  writeAll(all);
+  await writeAll(all);
   return agent;
 }
 
-export function deleteAutonomousAgent(id: string) {
-  writeAll(readAll().filter((a) => a.id !== id));
+export async function deleteAutonomousAgent(id: string): Promise<void> {
+  await writeAll((await readAll()).filter((a) => a.id !== id));
 }
 
 export interface CreateInput {
@@ -69,9 +57,9 @@ export interface CreateInput {
   model?: string;
 }
 
-export function createAutonomousAgent(input: CreateInput): { ok: boolean; error?: string; agent?: AutonomousAgent } {
+export async function createAutonomousAgent(input: CreateInput): Promise<{ ok: boolean; error?: string; agent?: AutonomousAgent }> {
   if (!/^0x[a-fA-F0-9]{40}$/.test(input.ownerWallet)) return { ok: false, error: "A valid owner wallet is required" };
-  const svc = getServiceById(input.targetServiceId);
+  const svc = await getServiceById(input.targetServiceId);
   if (!svc) return { ok: false, error: "Target service not found" };
   if (!(input.budgetUsdc > 0)) return { ok: false, error: "Set a budget greater than 0 USDC" };
 
@@ -96,7 +84,7 @@ export function createAutonomousAgent(input: CreateInput): { ok: boolean; error?
     nextRunAt: now.toISOString(), // eligible immediately
     runs: [],
   };
-  return { ok: true, agent: saveAutonomousAgent(agent) };
+  return { ok: true, agent: await saveAutonomousAgent(agent) };
 }
 
 // Pull the human-meaningful result out of a service response body for display.
@@ -125,7 +113,7 @@ function limitsReached(a: AutonomousAgent): boolean {
 
 // Execute exactly one paid call for an agent (if it's due/eligible).
 export async function runAgentOnce(id: string): Promise<AutonomousAgent | undefined> {
-  const a = getAutonomousAgent(id);
+  const a = await getAutonomousAgent(id);
   if (!a) return undefined;
   if (a.status !== "running") return a;
   if (limitsReached(a)) {
@@ -160,7 +148,7 @@ export async function runAgentOnce(id: string): Promise<AutonomousAgent | undefi
         a.spentUsdc = Math.round((a.spentUsdc + a.priceUsdc) * 1e6) / 1e6;
         a.callsMade += 1;
         // Reflect this autonomous call in the target service's real metrics.
-        appendCallRecord(a.targetServiceId, {
+        await appendCallRecord(a.targetServiceId, {
           id: `call_${randomBytes(4).toString("hex")}`,
           serviceId: a.targetServiceId,
           type: "payment",
@@ -190,7 +178,7 @@ export async function runAgentOnce(id: string): Promise<AutonomousAgent | undefi
 // Run every agent whose nextRunAt is due. Driven by the page poll or the
 // scripts/agent-runner.mjs worker / a cron hitting POST /api/autonomous/tick.
 export async function tickDueAgents(): Promise<{ ran: number; agents: AutonomousAgent[] }> {
-  const due = readAll().filter((a) => a.status === "running" && Date.parse(a.nextRunAt) <= Date.now());
+  const due = (await readAll()).filter((a) => a.status === "running" && Date.parse(a.nextRunAt) <= Date.now());
   const agents: AutonomousAgent[] = [];
   for (const a of due) {
     const r = await runAgentOnce(a.id);
@@ -199,8 +187,8 @@ export async function tickDueAgents(): Promise<{ ran: number; agents: Autonomous
   return { ran: agents.length, agents };
 }
 
-export function setStatus(id: string, status: AutonomousStatus): AutonomousAgent | undefined {
-  const a = getAutonomousAgent(id);
+export async function setStatus(id: string, status: AutonomousStatus): Promise<AutonomousAgent | undefined> {
+  const a = await getAutonomousAgent(id);
   if (!a) return undefined;
   // Don't silently resurrect an exhausted budget.
   if (status === "running" && a.budgetUsdc > 0 && a.spentUsdc + a.priceUsdc > a.budgetUsdc + 1e-9) {

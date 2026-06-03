@@ -24,13 +24,13 @@ export async function POST(req: Request) {
   const { discovered, reports } = await runCrawl(body);
 
   // Dedupe against existing endpoints and persist new ones.
-  const existing = new Set(getServices().map((s) => s.endpoint));
+  const existing = new Set((await getServices()).map((s) => s.endpoint));
   const seen = new Set<string>();
   const saved: { id: string; name: string; endpoint: string; wallet: string }[] = [];
   for (const svc of discovered) {
     if (existing.has(svc.endpoint) || seen.has(svc.endpoint)) continue;
     seen.add(svc.endpoint);
-    saveService(svc);
+    await saveService(svc);
     saved.push({ id: svc.id, name: svc.name, endpoint: svc.endpoint, wallet: svc.wallet });
   }
 

@@ -25,7 +25,7 @@ async function handle(req: Request) {
   if (!target) return NextResponse.json({ error: "Missing url" }, { status: 400 });
 
   // SSRF guard — must be a known, listed service endpoint.
-  const service = getServices().find((s) => s.endpoint === target);
+  const service = (await getServices()).find((s) => s.endpoint === target);
   if (!service) {
     return NextResponse.json({ error: "Endpoint is not a listed service" }, { status: 403 });
   }
@@ -86,7 +86,7 @@ async function handle(req: Request) {
       amountUsdc: service.priceUsdc,
       txHash,
     };
-    appendCallRecord(service.id, rec);
+    await appendCallRecord(service.id, rec);
   }
 
   return new NextResponse(buf, { status: tRes.status, headers: resHeaders });

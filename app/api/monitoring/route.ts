@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const serviceId = searchParams.get("serviceId");
 
   if (serviceId) {
-    const svc = getServiceById(serviceId);
+    const svc = await getServiceById(serviceId);
     if (!svc) return NextResponse.json({ error: "Service not found" }, { status: 404 });
     return NextResponse.json({
       service: {
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const services = getServices().map((s) => ({
+  const services = (await getServices()).map((s) => ({
     id: s.id,
     slug: s.slug,
     name: s.name,

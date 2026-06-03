@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const serviceId = searchParams.get("serviceId");
   if (!serviceId) return NextResponse.json({ error: "serviceId query param required" }, { status: 422 });
-  const svc = getServiceById(serviceId);
+  const svc = await getServiceById(serviceId);
   if (!svc) return NextResponse.json({ error: "Service not found" }, { status: 404 });
   return NextResponse.json({
     serviceId: svc.id,

@@ -55,22 +55,22 @@ export async function probeService(service: Service): Promise<HealthCheck> {
 
 // Probe one service and persist the result (updates live metrics).
 export async function checkService(serviceId: string): Promise<HealthCheck | null> {
-  const svc = getServiceById(serviceId);
+  const svc = await getServiceById(serviceId);
   if (!svc) return null;
   const check = await probeService(svc);
-  appendHealthCheck(svc.id, check);
+  await appendHealthCheck(svc.id, check);
   return check;
 }
 
 // Probe every non-demo service (used by the scheduled probe route/script).
 // Demo seed listings are skipped so we never invent uptime for fake endpoints.
 export async function checkAllServices(opts: { includeDemo?: boolean } = {}): Promise<HealthCheck[]> {
-  const services = getServices().filter((s) => opts.includeDemo || !s.demo);
+  const services = (await getServices()).filter((s) => opts.includeDemo || !s.demo);
   const results: HealthCheck[] = [];
   // Sequential to stay gentle on rate limits; the set is small.
   for (const svc of services) {
     const check = await probeService(svc);
-    appendHealthCheck(svc.id, check);
+    await appendHealthCheck(svc.id, check);
     results.push(check);
   }
   return results;

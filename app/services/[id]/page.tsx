@@ -37,17 +37,17 @@ import { formatCompact, formatUsdc, timeAgo, toManifest, truncateAddress } from 
 
 export const dynamic = "force-dynamic";
 
-export function generateMetadata({ params }: { params: { id: string } }): Metadata {
-  const service = getServiceById(params.id);
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const service = await getServiceById(params.id);
   if (!service) return { title: "Service not found" };
   return { title: service.name, description: service.description };
 }
 
-export default function ServiceDetailPage({ params }: { params: { id: string } }) {
-  const service = getServiceById(params.id);
+export default async function ServiceDetailPage({ params }: { params: { id: string } }) {
+  const service = await getServiceById(params.id);
   if (!service) notFound();
 
-  const owner = getAgentById(service.ownerAgentId);
+  const owner = await getAgentById(service.ownerAgentId);
   const manifest = toManifest(service);
   const category = CATEGORIES.find((c) => c.value === service.category)?.label ?? service.category;
   const successRate =

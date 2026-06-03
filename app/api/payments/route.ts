@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const serviceId = searchParams.get("serviceId");
   const onlyPaid = searchParams.get("onlyPaid") === "true";
 
-  const services = getServices();
+  const services = await getServices();
   const rows = services
     .filter((s) => !serviceId || s.id === serviceId || s.slug === serviceId)
     .flatMap((s) =>

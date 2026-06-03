@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 // GET /api/autonomous?owner=0x...   -> list runners (optionally for one wallet)
 export async function GET(req: Request) {
   const owner = new URL(req.url).searchParams.get("owner") ?? undefined;
-  const agents = getAutonomousAgents(owner ?? undefined);
+  const agents = await getAutonomousAgents(owner ?? undefined);
   return NextResponse.json({ agents, count: agents.length });
 }
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const result = createAutonomousAgent({
+  const result = await createAutonomousAgent({
     name: String(body.name ?? ""),
     ownerWallet: String(body.ownerWallet ?? ""),
     targetServiceId: String(body.targetServiceId ?? ""),
