@@ -18,7 +18,7 @@ import { extractSettlementTxHash } from "./utils";
 // uptime / calls / revenue reflect autonomous traffic too.
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
 const FILE = path.join(DATA_DIR, "autonomous.json");
 const MIN_INTERVAL_SEC = 15;
 

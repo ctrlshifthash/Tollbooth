@@ -12,7 +12,7 @@ import { isValidEthAddress } from "./utils";
 // via x402 directly to the seller's wallet (see /api/marketplace/buy/[id]).
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
 const LISTINGS_FILE = path.join(DATA_DIR, "marketplace.json");
 const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
 

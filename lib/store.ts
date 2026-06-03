@@ -14,7 +14,9 @@ import { slugify, truncateAddress } from "./utils";
 // later means re-implementing these functions only.
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Vercel's project filesystem is read-only; only /tmp is writable. Use it on
+// Vercel (ephemeral, re-seeds on cold start) and the repo's /data locally.
+const DATA_DIR = process.env.VERCEL ? "/tmp/data" : path.join(process.cwd(), "data");
 const SERVICES_FILE = path.join(DATA_DIR, "services.json");
 const AGENTS_FILE = path.join(DATA_DIR, "agents.json");
 const NONCES_FILE = path.join(DATA_DIR, "nonces.json");
