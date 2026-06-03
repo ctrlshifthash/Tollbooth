@@ -186,7 +186,7 @@ export default function ListServicePage() {
                 <div>
                   <CardTitle>{result.service.name} submitted</CardTitle>
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    Verification {result.verification.status} Â· live endpoint probe
+                    Verification {result.verification.status} · live endpoint probe
                   </p>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export default function ListServicePage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">List a service</h1>
           <p className="mt-2 max-w-xl text-muted-foreground">
-            Submit your x402 endpoint. On submit we run a live verification â€” reaching the endpoint, checking for a 402,
+            Submit your x402 endpoint. On submit we run a live verification — reaching the endpoint, checking for a 402,
             and parsing the payment requirements.
           </p>
         </div>
@@ -367,11 +367,11 @@ export default function ListServicePage() {
         <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <ShieldCheck className="size-4 text-blue-400" />
-            We never fake a verified badge â€” status reflects the live probe result.
+            We never fake a verified badge — status reflects the live probe result.
           </p>
           <Button type="submit" size="lg" disabled={submitting}>
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
-            {submitting ? "Verifyingâ€¦" : "Submit & verify"}
+            {submitting ? "Verifying…" : "Submit & verify"}
           </Button>
         </div>
       </form>

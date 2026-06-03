@@ -122,7 +122,7 @@ function VerifyInner() {
               <Input
                 value={wallet}
                 onChange={(e) => setWallet(e.target.value)}
-                placeholder="0xâ€¦"
+                placeholder="0x…"
                 className="pl-9 font-mono"
               />
             </div>
@@ -145,7 +145,7 @@ function VerifyInner() {
         <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Loader2 className="size-4 animate-spin text-blue-400" /> Verifying endpointâ€¦
+              <Loader2 className="size-4 animate-spin text-blue-400" /> Verifying endpoint…
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -202,7 +202,7 @@ function VerifyInner() {
               {run.latencyMs !== undefined && <Badge variant="muted">{run.latencyMs}ms</Badge>}
               {run.paymentRequirement && (
                 <Badge variant="default">
-                  {run.paymentRequirement.scheme} Â· {run.paymentRequirement.network}
+                  {run.paymentRequirement.scheme} · {run.paymentRequirement.network}
                 </Badge>
               )}
             </div>

@@ -14,17 +14,17 @@ and `lucide-react` icons. Payments settle in **USDC on Base**.
 
 ## Features
 
-- **Home** â€” product landing page: hero, how-it-works, why Base/x402, featured services,
+- **Home** — product landing page: hero, how-it-works, why Base/x402, featured services,
   reputation metrics, and developer workflow.
-- **Services directory** (`/services`) â€” cards/table with search and filters (category,
+- **Services directory** (`/services`) — cards/table with search and filters (category,
   price, uptime, chain, verified-only) and sorting.
-- **Service detail** (`/services/[id]`) â€” endpoint, wallet, schemas, metrics, settlement
+- **Service detail** (`/services/[id]`) — endpoint, wallet, schemas, metrics, settlement
   examples, owner, verification history, and **Test Endpoint / Pay & Call / Copy Manifest**.
-- **List a service** (`/list`) â€” submit an endpoint; runs the verification pipeline on submit.
-- **Verification** (`/verify`) â€” step-by-step live verification with success/failure states.
-- **Agents** (`/agents`, `/agents/[handle]`) â€” operator profiles: services, wallet, revenue,
+- **List a service** (`/list`) — submit an endpoint; runs the verification pipeline on submit.
+- **Verification** (`/verify`) — step-by-step live verification with success/failure states.
+- **Agents** (`/agents`, `/agents/[handle]`) — operator profiles: services, wallet, revenue,
   calls served, rating, trust score, and an activity feed.
-- **Docs** (`/docs`) â€” integration guide, example endpoint, manifest JSON, and API reference.
+- **Docs** (`/docs`) — integration guide, example endpoint, manifest JSON, and API reference.
 - Polished empty / loading / error states throughout.
 
 ## Tech & data
@@ -32,9 +32,9 @@ and `lucide-react` icons. Payments settle in **USDC on Base**.
 - **Data store:** a small local **JSON store** (`lib/store.ts`) seeded from `lib/seed.ts`.
   On first run it writes `data/services.json` and `data/agents.json`. Every read/write goes
   through the store, so swapping in Postgres/Prisma/SQLite later only means re-implementing
-  those functions â€” the API routes and UI are untouched. Types live in `lib/types.ts`.
+  those functions — the API routes and UI are untouched. Types live in `lib/types.ts`.
 - **Reputation** is a pure function (`computeReputation` in `lib/utils.ts`) of uptime, success
-  rate, call volume, and verification status â€” transparent and recomputable.
+  rate, call volume, and verification status — transparent and recomputable.
 
 ## Verification
 
@@ -90,7 +90,7 @@ only non-demo seed is the live `/api/x402/echo` endpoint.
 
 | Method | Route                | Description                                                        |
 | ------ | -------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/services`      | List/filter services (`category, chain, verified, q, sort`, â€¦)     |
+| GET    | `/api/services`      | List/filter services (`category, chain, verified, q, sort`, …)     |
 | POST   | `/api/services`      | Register a service, then run verification (result sets status)     |
 | GET    | `/api/services/:id`  | Fetch a service (id or slug) + generated manifest                  |
 | POST   | `/api/verify`        | Run the live x402 verification pipeline                            |
@@ -157,7 +157,7 @@ app/
   verify/                      Live verification flow
   agents/                      Profiles list + detail
   docs/                        Integration docs
-components/                    UI primitives (button, card, â€¦) + domain components
+components/                    UI primitives (button, card, …) + domain components
 lib/
   types.ts                     Domain types (the data contract)
   seed.ts                      Mock seed data
@@ -168,6 +168,6 @@ lib/
 
 ## Notes
 
-- USDC addresses used: Base `0x8335â€¦2913`, Base Sepolia `0x036Câ€¦CF7e`.
+- USDC addresses used: Base `0x8335…2913`, Base Sepolia `0x036C…CF7e`.
 - Seed endpoints are illustrative; run verification against your own live x402 endpoint to
   see the real pipeline produce a `verified` / `failed` / `pending` result.

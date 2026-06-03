@@ -61,7 +61,7 @@ export async function parsePaymentRequirements(res: Response): Promise<PaymentRe
     // fall through to header parsing
   }
 
-  // 2) Headers â€” some implementations expose www-authenticate / x-payment hints.
+  // 2) Headers — some implementations expose www-authenticate / x-payment hints.
   // x402 v2: requirements arrive as a base64-encoded JSON object in the
   // `payment-required` header, containing an `accepts` array.
   const v2Header = res.headers.get("payment-required");
@@ -86,7 +86,7 @@ export async function parsePaymentRequirements(res: Response): Promise<PaymentRe
       const pr = coercePaymentRequirement(Array.isArray(parsed) ? parsed[0] : parsed);
       if (pr) return pr;
     } catch {
-      // header was not JSON â€” ignore
+      // header was not JSON — ignore
     }
   }
   return null;
@@ -169,7 +169,7 @@ export async function runVerification(input: VerifyInput): Promise<VerificationR
     return finalize();
   }
 
-  // 1) Reachability + status capture. Probe with a GET (no payment header) â€” a
+  // 1) Reachability + status capture. Probe with a GET (no payment header) — a
   // compliant x402 resource answers 402 to an unpaid request.
   const started = Date.now();
   let res: Response | null = null;
@@ -232,7 +232,7 @@ export async function runVerification(input: VerifyInput): Promise<VerificationR
     );
     if (requirementError) paymentRequirement = null;
   } else {
-    steps.push(step("payment_requirements_parsed", "skipped", "Skipped â€” endpoint did not return 402"));
+    steps.push(step("payment_requirements_parsed", "skipped", "Skipped — endpoint did not return 402"));
   }
 
   // 4) Wallet validity. Cross-check the declared payTo against the listing wallet.
@@ -245,7 +245,7 @@ export async function runVerification(input: VerifyInput): Promise<VerificationR
   steps.push(step("wallet_valid", walletStatus, walletDetail));
 
   // 5) Prepare a test payment from the parsed requirements. "Prepared" means we
-  // could construct the payment intent locally â€” not that we paid.
+  // could construct the payment intent locally — not that we paid.
   const canPrepare = is402 && !!paymentRequirement && walletStatus === "pass";
   steps.push(
     step(

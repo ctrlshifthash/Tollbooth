@@ -8,7 +8,7 @@ import { CodeBlock } from "@/components/code-block";
 
 export const metadata: Metadata = {
   title: "Docs",
-  description: "Integrate an x402 service with Tollbooth â€” endpoint example, manifest, and API reference.",
+  description: "Integrate an x402 service with Tollbooth — endpoint example, manifest, and API reference.",
 };
 
 const ENDPOINT_EXAMPLE = `// A minimal x402-enabled endpoint (Next.js route handler).
@@ -203,7 +203,7 @@ export default function DocsPage() {
                     </span>
                     <span>
                       <span className="font-medium">{title}</span>{" "}
-                      <span className="text-muted-foreground">â€” {body}</span>
+                      <span className="text-muted-foreground">— {body}</span>
                     </span>
                   </li>
                 ))}
