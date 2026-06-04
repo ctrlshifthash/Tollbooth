@@ -57,7 +57,8 @@ export function Nav() {
     <header className="sticky top-0 z-50 border-b border-white/5 bg-background/70 backdrop-blur-xl">
       <div className="relative mx-auto flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:pr-12">
         <Link href="/" className="flex items-center gap-2 font-bold tracking-tight sm:ml-6 lg:ml-10" onClick={() => setOpen(false)}>
-          <span className="size-6 rounded-[5px] bg-primary" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Tollbooth" className="size-7 rounded-[6px] bg-white object-contain" />
           <span className="text-lg">Tollbooth</span>
         </Link>
 
