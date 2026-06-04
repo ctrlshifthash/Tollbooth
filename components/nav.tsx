@@ -20,7 +20,7 @@ function XLogo({ className }: { className?: string }) {
 const SOCIALS = [
   {
     label: "Bankrbot",
-    href: "https://bankr.bot",
+    href: "https://bankr.bot/discover/0x7994ea9b7ce9e6b825b74b2a87f20d34cb746ba3",
     // eslint-disable-next-line @next/next/no-img-element
     icon: <img src="https://static.wixstatic.com/media/e2da02_94fb7378638b43738dd6eafe1de1d0da~mv2.png" alt="Bankrbot" className="size-full rounded-md object-cover" />,
   },
