@@ -24,8 +24,8 @@ const SOCIALS = [
     // eslint-disable-next-line @next/next/no-img-element
     icon: <img src="https://static.wixstatic.com/media/e2da02_94fb7378638b43738dd6eafe1de1d0da~mv2.png" alt="Bankrbot" className="size-full rounded-md object-cover" />,
   },
-  { label: "X", href: "https://x.com", icon: <XLogo className="size-3.5" /> },
-  { label: "GitHub", href: "https://github.com", icon: <Github className="size-4" /> },
+  { label: "X", href: "https://x.com/tryTollbooth", icon: <XLogo className="size-3.5" /> },
+  { label: "GitHub", href: "https://github.com/tryTollbooth/Tollbooth", icon: <Github className="size-4" /> },
 ];
 
 const LINKS = [
