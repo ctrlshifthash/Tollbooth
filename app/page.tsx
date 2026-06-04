@@ -132,7 +132,8 @@ export default async function HomePage() {
       <section className="base-hero base-dither relative overflow-hidden">
         <div className="container relative z-10 pb-24 pt-20 text-center sm:pt-28">
           <div className="animate-rise mb-8 flex items-center justify-center gap-2.5">
-            <span className="size-9 rounded-md bg-white animate-float" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Tollbooth" className="size-10 rounded-lg bg-white object-contain animate-float" />
             <span className="text-2xl font-bold tracking-tight text-white">Tollbooth</span>
           </div>
 
