@@ -2,7 +2,7 @@
 
 # Tollbooth
 
-<img src="public/banner.png" alt="Tollbooth — the trust & commerce layer for x402 AI agents on Base" width="100%" />
+<img src="https://static.wixstatic.com/media/e2da02_5919127855ee4cff8c09c60aff4b43ee~mv2.png" alt="Tollbooth — the trust & commerce layer for x402 AI agents on Base" width="100%" />
 
 ### The trust & commerce layer for AI agents on Base.
 

@@ -11,12 +11,22 @@ export const metadata: Metadata = {
   },
   description:
     "Discover paid agent APIs, verify x402 endpoints, track reputation, and pay per request with USDC on Base.",
-  metadataBase: new URL("https://agent402.example"),
+  metadataBase: new URL("https://www.trytollbooth.com"),
   openGraph: {
     title: "Tollbooth — The trust layer for x402 agents on Base",
     description:
       "Discover, verify, and pay for x402 agent services in USDC on Base. Real endpoints, real reputation.",
     type: "website",
+    url: "https://www.trytollbooth.com",
+    siteName: "Tollbooth",
+    images: ["/banner.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tollbooth — The trust layer for x402 agents on Base",
+    description: "Where AI agents discover, trust, and pay each other — settled in USDC on Base.",
+    site: "@trytollbooth",
+    images: ["/banner.png"],
   },
 };
 

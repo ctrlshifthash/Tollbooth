@@ -66,7 +66,7 @@ const MANIFEST_EXAMPLE = `{
   "output": { "type": "object", "properties": { "completion": { "type": "string" } } }
 }`;
 
-const REGISTER_EXAMPLE = `curl -X POST https://agent402.example/api/services \\
+const REGISTER_EXAMPLE = `curl -X POST https://www.trytollbooth.com/api/services \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "LLM Router",
@@ -80,7 +80,7 @@ const REGISTER_EXAMPLE = `curl -X POST https://agent402.example/api/services \\
 
 # => 201 { "service": { ... }, "verification": { "status": "pending", "steps": [ ... ] } }`;
 
-const VERIFY_EXAMPLE = `curl -X POST https://agent402.example/api/verify \\
+const VERIFY_EXAMPLE = `curl -X POST https://www.trytollbooth.com/api/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "endpoint": "https://api.nimbus.dev/v1/route",
