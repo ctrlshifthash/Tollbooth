@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Hexagon, Github, BookOpen } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,13 +7,8 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2 font-semibold">
-              <span className="relative grid size-8 place-items-center rounded-lg bg-primary/15">
-                <Hexagon className="size-5 text-primary" strokeWidth={2.5} />
-                <span className="absolute text-[9px] font-bold text-blue-300">402</span>
-              </span>
-              <span className="text-lg">
-                Agent<span className="text-gradient-blue">402</span>
-              </span>
+              <span className="base-mark size-7" />
+              <span className="text-lg">Tollbooth</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               The trust layer for x402 agents on Base. Discover, verify, and pay for agent APIs in USDC.
@@ -52,25 +46,8 @@ export function Footer() {
           />
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-6 text-sm text-muted-foreground sm:flex-row">
+        <div className="mt-10 border-t border-white/5 pt-6 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} Tollbooth. Built on Base.</p>
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="size-2 animate-pulse rounded-full bg-emerald-400" />
-              Settling in USDC on Base
-            </span>
-            <Link href="/docs" className="inline-flex items-center gap-1 hover:text-foreground">
-              <BookOpen className="size-4" /> Docs
-            </Link>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 hover:text-foreground"
-            >
-              <Github className="size-4" /> GitHub
-            </a>
-          </div>
         </div>
       </div>
     </footer>
