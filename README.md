@@ -1,173 +1,251 @@
-﻿# Agent402
+<div align="center">
 
-**The trust layer for x402 agents on Base.**
+# Tollbooth
 
-Agent402 is a discovery, verification, and reputation platform for [x402](https://x402.org)
-paid services. Agents and developers list real endpoints; Agent402 verifies that each one
-returns a genuine `402 Payment Required` challenge, parses its x402 payment requirements,
-validates the wallet, and tracks uptime, calls, latency, and reputation over time.
+<img src="public/banner.png" alt="Tollbooth — the trust & commerce layer for x402 AI agents on Base" width="100%" />
 
-Built with **Next.js (App Router) + TypeScript + Tailwind CSS**, shadcn-style components,
-and `lucide-react` icons. Payments settle in **USDC on Base**.
+### The trust & commerce layer for AI agents on Base.
+
+**Tollbooth is where autonomous AI agents discover, trust, and pay each other for work — every call settled in real USDC, on-chain, in a single HTTP round-trip.**
+
+<br/>
+
+[![Website](https://img.shields.io/badge/Website-trytollbooth.com-0000FF?style=for-the-badge&logoColor=white)](https://trytollbooth.com)
+[![X / Twitter](https://img.shields.io/badge/Follow-@trytollbooth-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/trytollbooth)
+
+<br/>
+
+[![Built on Base](https://img.shields.io/badge/Built%20on-Base-0052FF?style=flat-square&logo=coinbase&logoColor=white)](https://base.org)
+[![x402](https://img.shields.io/badge/Protocol-x402-0000FF?style=flat-square)](https://x402.org)
+[![Settled in USDC](https://img.shields.io/badge/Settled%20in-USDC-2775CA?style=flat-square)](https://www.circle.com/usdc)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Neon Postgres](https://img.shields.io/badge/Storage-Neon%20Postgres-00E599?style=flat-square&logo=postgresql&logoColor=white)](https://neon.tech)
+[![Deployed on Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
+[![Mainnet](https://img.shields.io/badge/Network-Base%20Mainnet-success?style=flat-square)](https://base.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blueviolet?style=flat-square)](#-contributing)
+
+</div>
 
 ---
 
-## Features
+## What is Tollbooth?
 
-- **Home** — product landing page: hero, how-it-works, why Base/x402, featured services,
-  reputation metrics, and developer workflow.
-- **Services directory** (`/services`) — cards/table with search and filters (category,
-  price, uptime, chain, verified-only) and sorting.
-- **Service detail** (`/services/[id]`) — endpoint, wallet, schemas, metrics, settlement
-  examples, owner, verification history, and **Test Endpoint / Pay & Call / Copy Manifest**.
-- **List a service** (`/list`) — submit an endpoint; runs the verification pipeline on submit.
-- **Verification** (`/verify`) — step-by-step live verification with success/failure states.
-- **Agents** (`/agents`, `/agents/[handle]`) — operator profiles: services, wallet, revenue,
-  calls served, rating, trust score, and an activity feed.
-- **Docs** (`/docs`) — integration guide, example endpoint, manifest JSON, and API reference.
-- Polished empty / loading / error states throughout.
+The web was built for humans who log in, type card details, and click "Buy." **AI agents can't do any of that.** They have no inbox to verify, no card to enter, no checkout to navigate. Yet agents are exactly the actors that now need to call APIs, hire other agents, and pay for compute — thousands of times, autonomously, for fractions of a cent.
 
-## Tech & data
+[**x402**](https://x402.org) solves the *payment* half: it revives the dormant HTTP `402 Payment Required` status code so any API can demand a stablecoin payment inline, and any caller can pay it inside the same request — no keys, no accounts, no invoices. The agent calls an endpoint, gets a `402` with payment terms, signs a USDC authorization, retries, and gets its answer. One round-trip.
 
-- **Data store:** a small local **JSON store** (`lib/store.ts`) seeded from `lib/seed.ts`.
-  On first run it writes `data/services.json` and `data/agents.json`. Every read/write goes
-  through the store, so swapping in Postgres/Prisma/SQLite later only means re-implementing
-  those functions — the API routes and UI are untouched. Types live in `lib/types.ts`.
-- **Reputation** is a pure function (`computeReputation` in `lib/utils.ts`) of uptime, success
-  rate, call volume, and verification status — transparent and recomputable.
+But an open network of pay-per-call endpoints is **useless without trust and tooling**. Which endpoints are real? Which actually work? How does an agent *find* them, judge them, and put them to use?
 
-## Verification
+**Tollbooth is that layer.** It is a live product on **Base mainnet** that turns the raw x402 protocol into a usable economy:
 
-Verification logic (`lib/verification.ts`) performs **real** checks where possible:
+> **Discover** paid agent APIs → **verify** they really settle on-chain → **track** their reputation & uptime → **pay** per call in USDC → **automate** it with self-driving agents → and **buy & sell** the whole thing in a marketplace.
 
-1. Endpoint is a valid URL and reachable
-2. Returns **HTTP 402**
-3. x402 payment requirements parsed (`accepts` body array or headers)
-4. Wallet address valid + cross-checked against the endpoint's `payTo`
-5. A test payment can be **prepared** from the requirements
-6. If `X402_EVM_PRIVATE_KEY` is configured, Agent402 signs an x402 payment with the official SDK
-7. The request is replayed with payment and must return a valid paid response
+Every number on the site is real. Every settlement is a real transaction on Base. Nothing is mocked.
 
-A service is **never** marked `verified` unless the full live flow passes. Without a funded `X402_EVM_PRIVATE_KEY`, the payment step fails explicitly instead of pretending settlement worked.
+---
 
-## Real infrastructure features
+## ✨ Features
 
-- **Manifest ingestion** — `POST /api/manifests` accepts one or many
-  `agent402/manifest@1` manifests, validates the schema, upserts the owning
-  agent (keyed by payTo wallet, so one agent can publish many services), and
-  runs verification on each.
-- **Wallet ownership proof** — owners prove control by signing a nonce
-  (`POST /api/claim/nonce` → sign → `POST /api/claim/verify`). Signatures are
-  checked with viem (`verifyMessage`, EIP-191). "Owner verified" never shows
-  without a valid signature. Claim UI is on each service page.
-- **Uptime monitoring** — optional `healthCheckUrl`, real probes via
-  `POST /api/health` (one or all non-demo services), history + uptime/latency on
-  the service page (`HealthPanel`, "Probe now"). Schedule it with
-  `node scripts/monitor.mjs` (set `INTERVAL_MS`) or wire `POST /api/health` into
-  any cron (protect with `CRON_SECRET`).
-- **Live reputation** — every test/paid call (`/api/test-call`) and health check
-  is stored as a real record; `uptimePct`, `successfulCalls`, `failedCalls`,
-  `avgLatencyMs`, and `reputationScore` are **recomputed from those records**
-  (`lib/metrics.ts`), not from seed values. The first real datapoint flips a
-  listing off `demo`.
-- **Discovery crawler** — `POST /api/crawl` + `/discover` page with source
-  adapters: manual URL list and GitHub repo search (both real, probed for a live
-  402), plus Farcaster/Base and Virtuals **placeholders** that report honestly.
-  Discovered endpoints are saved **unclaimed + unverified**.
-- **Base settlement capture** — real paid calls store the facilitator's
-  settlement tx hash (`extractSettlementTxHash`, only a real 0x-32-byte hash) and
-  link to BaseScan / Sepolia BaseScan. No tx hashes are invented.
-- **Dashboards** — `/dashboard` shows a wallet's owned/claimed services plus a
-  monitoring view (avg uptime, failures, paid calls, settled revenue, tx links),
-  all derived from real records.
+| | Feature | What it does |
+|---|---|---|
+| 🛰️ | **Service Directory** | Browse, search, and filter every x402 paid API on Base. Import live endpoints straight from the [Coinbase Bazaar](https://x402.org). |
+| ✅ | **Real Verification** | Tollbooth doesn't take a listing's word for it — it *pays the endpoint a real cent* and confirms the on-chain settlement before marking it verified. |
+| 📊 | **Reputation & Trust Scores** | Live trust scores from real call history, settlement success rate, latency, and uptime — not vanity metrics. |
+| 💸 | **Pay-Per-Call x402 Services** | First-party paid endpoints: AI **chat**, **summarize**, **translate**, **extract**, plus utility **hash** & **uuid** — each charged in USDC per request. |
+| 🤖 | **Autonomous Agents** | Spin up self-driving agents (budget + interval + goal). They find, pay for, and call services on their own — no human in the loop. Create as many as you want. |
+| 🧠 | **Hermes Orchestrator** | Give it a goal in plain English. Hermes reasons, calls the paid x402 tools it needs — each a real settlement — and returns the answer with a full trace. |
+| 🔀 | **Smart Router** | Routes a request to the best candidate service by price, reputation, and latency, then pays and executes. |
+| 🏪 | **Marketplace** | List services, agents, and automations for sale. Buyers pay via x402; funds settle **directly to the seller's wallet**; deliverables land on the buyer's dashboard. |
+| 🔐 | **Claim & Ownership** | Prove you own a service's payout wallet via a signed nonce challenge — then manage it from your dashboard. |
+| 📈 | **Uptime Monitoring** | Scheduled probes track endpoint health over time, feeding the trust score. |
+| 🧾 | **Payments Ledger** | Every paid call, attempt, amount, and tx hash — a real, auditable settlement log. |
+| 👛 | **Bring-Your-Own-Wallet** | Connect with [Privy](https://privy.io) and pay with **your own** USDC on Base. |
 
-### Honesty guarantees
-No fake verified status, revenue, uptime, or tx hashes. Seed listings are
-clearly marked **Demo** and shown as **unverified** until real checks pass; the
-only non-demo seed is the live `/api/x402/echo` endpoint.
+---
 
-## API routes
+## 🏗️ Architecture
 
-| Method | Route                | Description                                                        |
-| ------ | -------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/services`      | List/filter services (`category, chain, verified, q, sort`, …)     |
-| POST   | `/api/services`      | Register a service, then run verification (result sets status)     |
-| GET    | `/api/services/:id`  | Fetch a service (id or slug) + generated manifest                  |
-| POST   | `/api/verify`        | Run the live x402 verification pipeline                            |
-| POST   | `/api/test-call`     | Probe, then paid x402 replay when `X402_EVM_PRIVATE_KEY` is set    |
-| GET/POST | `/api/x402/echo`   | Built-in payable x402 endpoint using the Coinbase CDP facilitator  |
+```
+                            ┌────────────────────────────────────────────┐
+                            │              Tollbooth (Next.js)             │
+   ┌─────────┐  HTTP 402    │                                              │
+   │   AI    │ ───────────► │  ┌─────────┐  ┌─────────┐  ┌────────────┐    │
+   │  Agent  │ ◄─────────── │  │ Router  │  │ Hermes  │  │ Autonomous │    │
+   └─────────┘   pay + 200  │  └────┬────┘  └────┬────┘  │   Agents   │    │
+        │                   │       │            │       └─────┬──────┘    │
+        │ signs EIP-3009    │       └────────────┴─────────────┘           │
+        │ USDC authorization│                    │                         │
+        ▼                   │            ┌────────▼─────────┐               │
+   ┌─────────┐              │            │   x402 Services   │              │
+   │  Privy  │              │            │ llm · summarize · │              │
+   │ Wallet  │              │            │ translate · hash  │              │
+   └─────────┘              │            └────────┬──────────┘              │
+                            │                     │                         │
+                            │   ┌─────────────────▼───────────────────┐     │
+                            │   │  Verification · Trust · Monitoring   │     │
+                            │   └─────────────────┬───────────────────┘     │
+                            │                     │                         │
+                            │            ┌────────▼─────────┐               │
+                            │            │  Neon Postgres   │  (JSONB KV)    │
+                            │            └──────────────────┘               │
+                            └─────────────────────┬────────────────────────┘
+                                                  │ settle
+                                    ┌─────────────▼──────────────┐
+                                    │  Coinbase CDP Facilitator   │
+                                    │        → Base Mainnet        │
+                                    └─────────────────────────────┘
+```
 
-## Getting started
+### The x402 payment flow (one request)
+
+```
+1.  Agent     ──── GET /api/x402/llm ──────────────────►  Tollbooth
+2.  Agent     ◄─── 402 Payment Required ────────────────  { payTo, amount, asset: USDC, network: base }
+3.  Agent     ──── sign EIP-3009 USDC authorization (off-chain, gasless)
+4.  Agent     ──── retry with X-PAYMENT header ─────────►  Tollbooth
+5.  Tollbooth ──── verify + settle via CDP facilitator ─►  Base mainnet   ✅ tx hash
+6.  Agent     ◄─── 200 OK + result ─────────────────────  (the work is delivered)
+```
+
+No API keys. No accounts. No pre-funding a balance. **The payment _is_ the request.**
+
+---
+
+## 🧰 Tech Stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| **Framework** | [Next.js 14](https://nextjs.org) (App Router, RSC, route handlers) | One codebase for UI + API; server components for fast reads; `force-dynamic` for live data. |
+| **Language** | [TypeScript](https://www.typescriptlang.org) | End-to-end type safety across protocol, store, and UI. |
+| **Payments** | [`@coinbase/x402`](https://x402.org), `@x402/core`, `@x402/evm`, `@x402/fetch` | The x402 protocol — requirements, payment signing, and settlement. |
+| **Chain** | [Base](https://base.org) mainnet + [viem](https://viem.sh) | Low-fee L2; viem for EIP-3009 USDC authorizations. |
+| **Settlement** | Coinbase **CDP** facilitator | Verifies the signed payment and settles USDC on-chain. |
+| **Wallets** | [Privy](https://privy.io) | Lets any visitor connect and pay with their own USDC. |
+| **Storage** | [Neon](https://neon.tech) serverless Postgres (JSONB KV) | Durable, serverless-friendly persistence that survives Vercel's read-only FS. |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com) + custom Base theme | Official Base Blue `#0000FF`, dither textures, dark/blue/white rhythm. |
+| **Deploy** | [Vercel](https://vercel.com) | Zero-config Next.js hosting + Neon integration. |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js 18.17+**
+- A **Neon** (or any Postgres) connection string
+- A funded **Base mainnet** EVM key + a **Coinbase CDP** API key (to settle real payments)
+- A **Privy** app ID (for wallet connect)
+
+### Install & run
 
 ```bash
+git clone https://github.com/ctrlshifthash/Tollbooth.git
+cd Tollbooth
 npm install
-cp .env.example .env.local
-npm run dev
-# open http://localhost:3000
+cp .env.example .env.local   # then fill in the values below
+npm run dev                  # http://localhost:3000
 ```
 
-Set these env vars for full live x402 behavior:
-
-- `X402_EVM_PRIVATE_KEY`: funded payer key used to pay and verify third-party x402 endpoints.
-- `X402_PAY_TO`: receiver wallet for the built-in `/api/x402/echo` endpoint.
-- `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET`: Coinbase CDP facilitator credentials for the built-in endpoint.
-- `NEXT_PUBLIC_APP_URL`: public app URL, defaults to `http://localhost:3000`.
-
-> **What runs without secrets:** the whole app, all read-only verification checks
-> (reachability, 402 detection, `accepts` parsing, wallet validation), and the
-> 402 challenge from `/api/x402/echo` (returns `503` with a clear reason until
-> `X402_PAY_TO` + CDP keys are set — never a fake 402).
->
-> **What needs your funded wallet:** the actual USDC settlement on Base. Because
-> that moves real money on mainnet, it can only run once you provide
-> `X402_EVM_PRIVATE_KEY` (payer) and CDP credentials (facilitator). The signing
-> and settlement path is built with the official `@x402/*` + `@coinbase/x402`
-> SDKs and is exercised live the moment those are present — nothing about
-> "verified" status or settlement is simulated.
-
-Production build:
+### Environment
 
 ```bash
-npm run build
-npm start
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Wallet connect (Privy)
+NEXT_PUBLIC_PRIVY_APP_ID=...
+PRIVY_APP_SECRET=...
+
+# x402 payer — funded Base mainnet key (server-side only; spends REAL USDC)
+X402_EVM_PRIVATE_KEY=0x...
+X402_PAY_TO=0x...            # receiver wallet for the built-in payable endpoints
+
+# Coinbase CDP facilitator (settles on Base)
+CDP_API_KEY_ID=...
+CDP_API_KEY_SECRET=...
+
+# AI gateway (powers the paid llm/summarize/translate/extract services)
+AI_GATEWAY_KEY=...
+
+# Pricing
+X402_LLM_PRICE=$0.02
+X402_ECHO_PRICE=$0.01
+
+# Durable storage (Neon / any Postgres)
+DATABASE_URL=postgresql://...
 ```
 
-### Resetting seed data
+> ⚠️ **Mainnet warning:** `X402_EVM_PRIVATE_KEY` spends real USDC on Base. Use a dedicated, low-balance wallet.
 
-The JSON store seeds itself on first run. To reset to the original mock data, delete the
-generated files and restart:
+---
 
-```bash
-rm -rf data/          # PowerShell: Remove-Item -Recurse -Force data
-npm run dev
-```
+## 📡 API Reference (selected)
 
-## Project structure
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/x402/llm` | `GET` | **Paid** AI chat — pay USDC, get a completion. |
+| `/api/x402/summarize` · `translate` · `extract` | `GET` | **Paid** AI utilities. |
+| `/api/x402/hash` · `uuid` · `echo` | `GET` | **Paid** lightweight utilities. |
+| `/api/services` | `GET/POST` | List & register services. |
+| `/api/verify` | `POST` | Run a real verification pass (pays + confirms settlement). |
+| `/api/manifests` | `POST` | Bulk-import services from x402 manifests. |
+| `/api/bazaar/sync` | `POST` | Pull live endpoints from the Coinbase Bazaar. |
+| `/api/agents` · `/api/autonomous` | `GET/POST` | Operators & self-driving agents. |
+| `/api/autonomous/tick` | `POST` | Run all due autonomous agents. |
+| `/api/hermes` | `POST` | Goal → reason → pay tools → answer (+ trace). |
+| `/api/router/run` | `POST` | Pick best service, pay, execute. |
+| `/api/marketplace` · `/api/marketplace/buy/[id]` | `GET/POST` | List & purchase via x402. |
+| `/api/claim/nonce` · `/api/claim/verify` | `POST` | Prove wallet ownership of a service. |
+| `/api/payments` | `GET` | The real settlement ledger. |
+| `/api/monitoring` · `/api/health` | `GET/POST` | Uptime probes & health. |
+
+---
+
+## 🗂️ Project Structure
 
 ```
 app/
-  api/
-    services/route.ts          GET (list) + POST (register & verify)
-    services/[id]/route.ts     GET one + manifest
-    verify/route.ts            POST live verification
-    test-call/route.ts         POST unpaid probe
-  page.tsx                     Home
-  services/                    Directory + detail (+ loading/not-found)
-  list/                        List a service (form + verification result)
-  verify/                      Live verification flow
-  agents/                      Profiles list + detail
-  docs/                        Integration docs
-components/                    UI primitives (button, card, …) + domain components
+  api/x402/      → first-party paid endpoints (llm, summarize, hash, …)
+  api/…          → services, agents, autonomous, hermes, router, marketplace,
+                   claim, verify, manifests, bazaar, monitoring, payments
+  (pages)        → home, services, agents, dashboard, marketplace, router,
+                   monitoring, payments, docs, verify, claim, manifest
 lib/
-  types.ts                     Domain types (the data contract)
-  seed.ts                      Mock seed data
-  store.ts                     JSON data store (swap for a DB here)
-  verification.ts              x402 verification engine
-  utils.ts                     Helpers + reputation formula + manifest builder
+  x402-*.ts      → protocol config, server settlement, browser/agent payment
+  store.ts       → async Postgres-backed KV (services, agents, nonces)
+  db.ts          → Neon KV layer (JSONB, one row per collection)
+  verification.ts→ real pay-and-confirm verification pipeline
+  router.ts      → candidate selection & call recording
+  hermes.ts      → orchestrator (reason → pay tools → answer)
+  autonomous.ts  → self-driving agent runner & scheduler
+  marketplace.ts → listings, purchases, seller-wallet settlement
+  metrics.ts · health.ts · claim.ts · bazaar.ts · crawler.ts · inference.ts
 ```
 
-## Notes
+---
 
-- USDC addresses used: Base `0x8335…2913`, Base Sepolia `0x036C…CF7e`.
-- Seed endpoints are illustrative; run verification against your own live x402 endpoint to
-  see the real pipeline produce a `verified` / `failed` / `pending` result.
+## 🌐 Deployment
+
+Tollbooth runs on **Vercel** with **Neon Postgres** for persistence (Vercel's filesystem is read-only, so all state lives in Postgres).
+
+1. Import the repo into Vercel.
+2. Add the **Neon** integration (auto-provisions `DATABASE_URL`).
+3. Set the environment variables above.
+4. Deploy. The app seeds itself on first run.
+
+---
+
+## 🤝 Contributing
+
+PRs and issues welcome. Building x402 services? List them on Tollbooth and open a PR to add notable ones to the directory seed.
+
+---
+
+<div align="center">
+
+**Tollbooth** — where AI agents do business.
+
+[🌐 trytollbooth.com](https://trytollbooth.com) · [𝕏 @trytollbooth](https://x.com/trytollbooth) · Built on [Base](https://base.org) · Settled in USDC
+
+</div>
